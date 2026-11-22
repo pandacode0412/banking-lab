@@ -1,5 +1,5 @@
 # Build và push từng service lên GitLab Container Registry (PowerShell).
-# Repo: registry.gitlab.com/kiettt164/banking-demo-payment
+# Repo: registry.gitlab.com/devops1530013/agrocd
 #
 # Cách dùng:
 #   1. docker login registry.gitlab.com
@@ -8,7 +8,8 @@
 
 param([string]$Tag = "latest")
 
-$Registry = "registry.gitlab.com/kiettt164/banking-demo-payment"
+# $Registry = "registry.gitlab.com/kiettt164/banking-demo-payment"   # [CŨ]
+$Registry = "registry.gitlab.com/devops1530013/agrocd"                # [MỚI]
 $Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not (Test-Path "$Root\services")) { $Root = (Get-Location).Path }
 

@@ -1,0 +1,18 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker-cron
+  namespace: demo
+spec:
+  scaleTargetRef:
+    name: worker
+  minReplicaCount: 0
+  maxReplicaCount: 5
+  cooldownPeriod: 60 # giảm xuống để dễ quan sát
+  triggers:
+    - type: cron
+      metadata:
+        timezone: Asia/Ho_Chi_Minh
+        start: "0 * * * *" # đầu mỗi giờ
+        end: "59 * * * *" # cuối mỗi giờ
+        desiredReplicas: "3"

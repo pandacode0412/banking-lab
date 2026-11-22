@@ -58,7 +58,8 @@ on:
 env:
   # GitLab Container Registry (từ phase1)
   REGISTRY: registry.gitlab.com
-  IMAGE_PREFIX: kiettt164/banking-demo-payment
+  # IMAGE_PREFIX: kiettt164/banking-demo-payment   # [CŨ] registry của tác giả
+  IMAGE_PREFIX: devops1530013/agrocd              # [MỚI] registry GitLab của bạn
 
 jobs:
   # ============================================================
@@ -148,7 +149,8 @@ jobs:
           if [ "${{ steps.filter.outputs.phase8 }}" == "true" ]; then
             echo "version=v3" >> $GITHUB_OUTPUT
           else
-            echo "version=v2" >> $GITHUB_OUTPUT
+            # echo "version=v2" >> $GITHUB_OUTPUT   # [CŨ] mặc định build v2 (phase4)
+            echo "version=v1" >> $GITHUB_OUTPUT   # [MỚI] Phase 2–3 dùng code v1 (services/, frontend/)
           fi
 
           # common thay đổi → build all (vì shared code ảnh hưởng mọi service)
@@ -248,7 +250,8 @@ jobs:
           - { name: account-service, version: v1, context: ., dockerfile: services/account-service/Dockerfile }
           - { name: transfer-service, version: v1, context: ., dockerfile: services/transfer-service/Dockerfile }
           - { name: notification-service, version: v1, context: ., dockerfile: services/notification-service/Dockerfile }
-          - { name: frontend, version: v1, context: ., dockerfile: frontend/Dockerfile }
+          # - { name: frontend, version: v1, context: ., dockerfile: frontend/Dockerfile }   # [CŨ] context sai: COPY package*.json/nginx.conf nằm trong frontend/
+          - { name: frontend, version: v1, context: frontend, dockerfile: frontend/Dockerfile }  # [MỚI]
           # V2 — phase4-application-v2/
           - { name: auth-service, version: v2, context: ., dockerfile: phase4-application-v2/services/auth-service/Dockerfile }
           - { name: account-service, version: v2, context: ., dockerfile: phase4-application-v2/services/account-service/Dockerfile }
@@ -425,31 +428,96 @@ jobs:
   # ============================================================
   # Stage 5: Update image tags in Helm values (GitOps)
   # ============================================================
+  # [CŨ] Commit tag ngược vào chính repo code (phase2-helm-chart) — ArgoCD không đọc chỗ này
+  # update-manifests:
+  #   name: Update Image Tags
+  #   runs-on: ubuntu-latest
+  #   needs: [detect-changes, push-images]
+  #   permissions:
+  #     contents: write
+  #   if: |
+  #     always() &&
+  #     needs.push-images.result == 'success' &&
+  #     github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         ref: main
+  #         fetch-depth: 0
+
+  #     - name: Compute image tag
+  #       id: tag
+  #       run: echo "sha=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
+
+  #     - name: Update Helm values
+  #       run: |
+  #         SERVICES="${{ needs.detect-changes.outputs.services-list }}"
+  #         TAG="${{ steps.tag.outputs.sha }}"
+  #         CHART_DIR="phase2-helm-chart/banking-demo/charts"
+
+  #         should_update() {
+  #           [ "$SERVICES" == "all" ] && return 0
+  #           echo "$SERVICES" | grep -q "$1" && return 0
+  #           return 1
+  #         }
+
+  #         update_tag() {
+  #           local svc="$1"
+  #           local file="$CHART_DIR/$svc/values.yaml"
+  #           if [ -f "$file" ]; then
+  #             sed -i "s|tag: .*|tag: $TAG|" "$file"
+  #             echo "Updated $svc → $TAG"
+  #           fi
+  #         }
+
+  #         for svc in auth-service account-service transfer-service notification-service frontend api-producer; do
+  #           if should_update "$svc"; then
+  #             update_tag "$svc"
+  #           fi
+  #         done
+
+  #     - name: Commit and push
+  #       run: |
+  #         git config user.name "github-actions[bot]"
+  #         git config user.email "github-actions[bot]@users.noreply.github.com"
+
+  #         git add phase2-helm-chart/banking-demo/charts/*/values.yaml
+
+  #         if git diff --cached --quiet; then
+  #           echo "No tag changes, skipping commit"
+  #           exit 0
+  #         fi
+
+  #         TAG="${{ steps.tag.outputs.sha }}"
+  #         SERVICES="${{ needs.detect-changes.outputs.services-list }}"
+  #         git commit -m "ci: update image tags to ${TAG} [${SERVICES}] [skip ci]"
+  #         git push origin main
+
+  # [MỚI] Commit tag sang repo GitOps riêng (gitlab.com/devops1530013/agrocd) — ArgoCD đọc repo này
   update-manifests:
-    name: Update Image Tags
+    name: Update Image Tags (gitops repo)
     runs-on: ubuntu-latest
     needs: [detect-changes, push-images]
-    permissions:
-      contents: write
     if: |
       always() &&
       needs.push-images.result == 'success' &&
       github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
 
       - name: Compute image tag
         id: tag
         run: echo "sha=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
 
+      - name: Clone gitops repo
+        run: |
+          git clone https://oauth2:${{ secrets.GITOPS_TOKEN }}@gitlab.com/devops1530013/agrocd.git gitops
+
       - name: Update Helm values
         run: |
           SERVICES="${{ needs.detect-changes.outputs.services-list }}"
           TAG="${{ steps.tag.outputs.sha }}"
-          CHART_DIR="phase2-helm-chart/banking-demo/charts"
+          CHART_DIR="gitops/banking-demo/charts"
 
           should_update() {
             [ "$SERVICES" == "all" ] && return 0
@@ -457,36 +525,25 @@ jobs:
             return 1
           }
 
-          update_tag() {
-            local svc="$1"
-            local file="$CHART_DIR/$svc/values.yaml"
-            if [ -f "$file" ]; then
-              sed -i "s|tag: .*|tag: $TAG|" "$file"
-              echo "Updated $svc → $TAG"
-            fi
-          }
-
-          for svc in auth-service account-service transfer-service notification-service frontend api-producer; do
-            if should_update "$svc"; then
-              update_tag "$svc"
+          for svc in auth-service account-service transfer-service notification-service frontend; do
+            file="$CHART_DIR/$svc/values.yaml"
+            if should_update "$svc" && [ -f "$file" ]; then
+              # chỉ đổi dòng "tag:" thật (bỏ qua dòng đã comment "# tag:")
+              sed -i "s|^\(\s*\)tag: .*|\1tag: $TAG|" "$file"
+              echo "Updated $svc -> $TAG"
             fi
           done
 
-      - name: Commit and push
+      - name: Commit and push to gitops repo
         run: |
+          cd gitops
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add phase2-helm-chart/banking-demo/charts/*/values.yaml
-
+          git add banking-demo/charts/*/values.yaml
           if git diff --cached --quiet; then
-            echo "No tag changes, skipping commit"
-            exit 0
+            echo "No tag changes"; exit 0
           fi
-
-          TAG="${{ steps.tag.outputs.sha }}"
-          SERVICES="${{ needs.detect-changes.outputs.services-list }}"
-          git commit -m "ci: update image tags to ${TAG} [${SERVICES}] [skip ci]"
+          git commit -m "ci: ${GITHUB_REPOSITORY}@${{ steps.tag.outputs.sha }} [${{ needs.detect-changes.outputs.services-list }}]"
           git push origin main
 
   # ============================================================

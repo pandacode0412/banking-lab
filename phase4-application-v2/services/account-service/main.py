@@ -19,7 +19,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
 logger = get_json_logger("account-service")
-
+# oke
 redis: Redis | None = None
 
 @asynccontextmanager

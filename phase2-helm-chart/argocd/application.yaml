@@ -13,8 +13,8 @@ metadata:
 spec:
   project: banking-demo
   source:
-    repoURL: https://github.com/kevinram164/banking-demo.git  # ← Đổi thành repo của bạn
-    targetRevision: main                                      # ← Branch hoặc tag
+    repoURL: https://github.com/pandacode0412/banking-lab.git # ← Đổi thành repo của bạn
+    targetRevision: main # ← Branch hoặc tag
     path: phase2-helm-chart/banking-demo
     helm:
       releaseName: banking-demo
@@ -40,8 +40,8 @@ spec:
   syncPolicy:
     # Auto sync mỗi khi ArgoCD phát hiện drift (tần suất = timeout.reconciliation trong argocd-cm)
     automated:
-      selfHeal: true   # Tự động áp dụng thay đổi
-      prune: false     # Không auto xóa resources — an toàn hơn
+      selfHeal: true # Tự động áp dụng thay đổi
+      prune: false # Không auto xóa resources — an toàn hơn
     syncOptions:
       - CreateNamespace=true
       # Chỉ apply resources thay đổi — rollout đúng service có values thay đổi, không động postgres/redis
