@@ -408,10 +408,14 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          # [CŨ] tags không có version → v1/v2/v3 cùng commit ghi đè nhau trên cùng tag <sha>:
+          #   type=sha,prefix=
+          #   type=ref,event=branch
+          #   type=raw,value=latest
+          # [MỚI] tag = <version>-<sha> (vd v1-24b6fbd) + <version>-latest; phải khớp với update-manifests
           tags: |
-            type=sha,prefix=
-            type=ref,event=branch
-            type=raw,value=latest
+            type=sha,prefix=${{ needs.detect-changes.outputs.version }}-
+            type=raw,value=${{ needs.detect-changes.outputs.version }}-latest
 
       - name: Tag and push
         if: steps.should-push.outputs.push == 'true' && steps.check-artifact.outputs.exists == 'true'
@@ -507,7 +511,9 @@ jobs:
 
       - name: Compute image tag
         id: tag
-        run: echo "sha=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
+        # [CŨ] run: echo "sha=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
+        # [MỚI] cùng định dạng với push-images: <version>-<sha 7 ký tự>
+        run: echo "sha=${{ needs.detect-changes.outputs.version }}-$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
 
       - name: Clone gitops repo
         run: |
