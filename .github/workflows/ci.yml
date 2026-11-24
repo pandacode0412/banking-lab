@@ -8,7 +8,7 @@ on:
       - 'common/**'
       - 'services/**'
       - 'frontend/**'
-      #- 'phase4-application-v2/**'
+      - 'phase4-application-v2/**'   # [MỚI] bật: đang chạy v2 (Phase 4)
       - 'phase8-application-v3/**'
       # KHÔNG trigger khi đổi:
       # - phase2-helm-chart/**
@@ -149,8 +149,8 @@ jobs:
           if [ "${{ steps.filter.outputs.phase8 }}" == "true" ]; then
             echo "version=v3" >> $GITHUB_OUTPUT
           else
-            # echo "version=v2" >> $GITHUB_OUTPUT   # [CŨ] mặc định build v2 (phase4)
-            echo "version=v1" >> $GITHUB_OUTPUT   # [MỚI] Phase 2–3 dùng code v1 (services/, frontend/)
+            # echo "version=v1" >> $GITHUB_OUTPUT   # [CŨ] Phase 2–3 dùng code v1 (services/, frontend/)
+            echo "version=v2" >> $GITHUB_OUTPUT   # [MỚI] Phase 4: auto build v2 (phase4-application-v2/)
           fi
 
           # common thay đổi → build all (vì shared code ảnh hưởng mọi service)
